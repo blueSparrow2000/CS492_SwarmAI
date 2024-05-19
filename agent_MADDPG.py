@@ -2,15 +2,15 @@ import torch
 import random
 import numpy as np
 from collections import deque # store memory
-from game import SnakeGameAI, INITIAL_FISH_NUM
+from game_fish import SnakeGameAI, INITIAL_FISH_NUM
 from model import Linear_QNet, QTrainer
 from helper import plot
 import torch.nn as nn
 import torch.optim as optim
 from variables_n_utils import sort_by_distance, get_sign
 
-MAX_MEMORY = 100_000
-BATCH_SIZE = 1000
+MAX_MEMORY = 10_000
+BATCH_SIZE = 100
 LR_ACTOR = 0.001
 LR_CRITIC = 0.002
 GAMMA = 0.95
@@ -62,6 +62,7 @@ class Critic(nn.Module):
         x = self.relu(self.fc1(x))
         x = self.relu(self.fc2(x))
         return self.fc3(x)
+        
 class Agent:
     def __init__(self, state_size=0, output_size=4):
         self.n_games = 0
@@ -143,6 +144,7 @@ class Agent:
             final_move[move] = 1
 
         return final_move
+    
 class MADDPGAgent(Agent):
     def __init__(self, num_agents, state_dim, action_dim, hidden_dim=256):
         super().__init__()
