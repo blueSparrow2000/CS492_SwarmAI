@@ -240,7 +240,7 @@ def train():
     plot_scores = []
     plot_mean_scores = []
     total_score = 0
-    record = 0 # best score
+    record = -999 # best score
     agent = MADDPGAgent(INITIAL_FISH_NUM,2 + 2*(INITIAL_FISH_NUM-1),4)
     game = SnakeGameAI()
     iters=0
