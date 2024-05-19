@@ -7,7 +7,7 @@ from model import Linear_QNet, QTrainer
 from helper import plot
 import torch.nn as nn
 import torch.optim as optim
-from variables_n_utils import sort_by_distance, get_sign
+from variables_n_utils import *
 
 MAX_MEMORY = 10_000
 BATCH_SIZE = 100
@@ -16,7 +16,7 @@ LR_CRITIC = 0.002
 GAMMA = 0.95
 TAU = 0.01
 NUM_ACTIONS = 4
-PLOT_LEARNING = False
+PLOT_LEARNING = True
 
 '''
 - State
@@ -80,28 +80,95 @@ class Agent:
     def get_state(self, game, fish_to_update): # game 으로부터 agent의 state를 계산
         fish = game.fish_list[fish_to_update]
         shark = game.shark
-        shark_x = shark.x - fish.x
-        shark_y = shark.y - fish.y
-
+        
+        shark_up = 0
+        shark_down = 0
+        shark_left = 0
+        shark_right = 0
+        # [상 하 좌 우]
+        # 다른 물고기와 x 좌표 비교 후 오른쪽 +1 할지 왼쪽 +1 할지 결정
+        if shark.x > fish.x:
+            if abs(shark.x - fish.x) > (WIDTH - abs(shark.x - fish.x)):
+                shark_left = 1
+            else:
+                shark_right = 1
+        elif shark.x < fish.x:
+            if abs(shark.x - fish.x) > (WIDTH - abs(shark.x - fish.x)):
+                shark_right = 1
+            else:
+                shark_left = 1
+        # 다른 물고기와 y 좌표 비교 후 위 1 할지 아래 1 할지 결정
+        if shark.y > fish.y:
+            if abs(shark.y - fish.y) > (WIDTH - abs(shark.y - fish.y)):
+                shark_down = 1
+            else:
+                shark_up = 1
+        elif shark.y < fish.y:
+            if abs(shark.y - fish.y) > (WIDTH - abs(shark.y - fish.y)):
+                shark_up = 1
+            else:
+                shark_down = 1
+        
         # sort nearby fishes by distance and excludes the fish (me)
         sorted_fish_list = sort_by_distance(game.fish_list, fish)
+        
+        up = 0
+        down = 0
+        left = 0
+        right = 0
 
-        # other fish's relative vector
-        other_fish_state = []
-        for i in range(INITIAL_FISH_NUM-1): # 각 input의 위치가 list가 줄어듦에 따라 변할 수 있다. 그러나 각각의 물고기에 대한 가중치는 대칭적으로 동일해야 하기 때문에 이렇게 처리해도 괜찮아야 한다 (즉 물고기마다 특별하지 않다)
-            if (len(sorted_fish_list)<= i): #if current fish is dead => 없는거나 다름없게 state를 주자: 거리가 0 이도록 주면 된다. 그러면 물고기가 해당 물고기에게 다가가기 위해 이동할 필요가 없어지기 때문이다
-                other_fish_state.append(0)
-                other_fish_state.append(0)
+        for other_fish in  sorted_fish_list:
+            if (other_fish.id == fish.id):
                 continue
 
-            friend_fish = sorted_fish_list[i]
-            other_fish_state.append(get_sign(friend_fish.x - fish.x))
-            other_fish_state.append(get_sign(friend_fish.y - fish.y))
+            # [상 하 좌 우]
+            # 다른 물고기와 x 좌표 비교 후 오른쪽 +1 할지 왼쪽 +1 할지 결정
+            if other_fish.x > fish.x:
+                if abs(other_fish.x - fish.x) > (WIDTH - abs(other_fish.x - fish.x)):
+                    left += 1
+                else:
+                    right += 1
+            elif other_fish.x < fish.x:
+                if abs(other_fish.x - fish.x) > (WIDTH - abs(other_fish.x - fish.x)):
+                    right += 1
+                else:
+                    left += 1
+            # 다른 물고기와 y 좌표 비교 후 위 +1 할지 아래 +1 할지 결정
+            if other_fish.y > fish.y:
+                if abs(other_fish.y - fish.y) > (WIDTH - abs(other_fish.y - fish.y)):
+                    down += 1
+                else:
+                    up += 1
+            elif other_fish.y < fish.y:
+                if abs(other_fish.y - fish.y) > (WIDTH - abs(other_fish.y - fish.y)):
+                    up += 1
+                else:
+                    down += 1
+
+        # other fish's relative vector
+        # other_fish_state = []
+        # for i in range(INITIAL_FISH_NUM-1): # 각 input의 위치가 list가 줄어듦에 따라 변할 수 있다. 그러나 각각의 물고기에 대한 가중치는 대칭적으로 동일해야 하기 때문에 이렇게 처리해도 괜찮아야 한다 (즉 물고기마다 특별하지 않다)
+        #     if (len(sorted_fish_list)<= i): #if current fish is dead => 없는거나 다름없게 state를 주자: 거리가 0 이도록 주면 된다. 그러면 물고기가 해당 물고기에게 다가가기 위해 이동할 필요가 없어지기 때문이다
+        #         other_fish_state.append(0)
+        #         other_fish_state.append(0)
+        #         continue
+
+        #     friend_fish = sorted_fish_list[i]
+        #     other_fish_state.append(get_sign(friend_fish.x - fish.x))
+        #     other_fish_state.append(get_sign(friend_fish.y - fish.y))
 
         state = [
             # Danger: 현재 상어의 방향 부호만 줌
-            get_sign(shark_x),
-            get_sign(shark_y),
+            shark_up,
+            shark_down,
+            shark_left,
+            shark_right,
+
+            # 다른 물고기 수
+            up,
+            down,
+            left,
+            right
 
             # Food location
             # game.food.x < game.fish.x, # food left
@@ -109,7 +176,7 @@ class Agent:
             # game.food.y < game.fish.y, # food up
             # game.food.y > game.fish.y, # food down
 
-        ] + other_fish_state
+        ]
         return np.array(state, dtype = int) # float로 바꾸려면 dtype=float
 
 
@@ -241,7 +308,7 @@ def train():
     plot_mean_scores = []
     total_score = 0
     record = -999 # best score
-    agent = MADDPGAgent(INITIAL_FISH_NUM,2 + 2*(INITIAL_FISH_NUM-1),4)
+    agent = MADDPGAgent(INITIAL_FISH_NUM, 8, 4)
     game = SnakeGameAI()
     iters=0
     while True:

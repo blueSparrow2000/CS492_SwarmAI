@@ -187,7 +187,7 @@ class SnakeGameAI:
         #     self._place_food()
 
         # 5. update ui and clock
-        self._update_ui()
+        # self._update_ui()
         self.clock.tick(SPEED)
         self.score += reward
         # 6. return game over and score
