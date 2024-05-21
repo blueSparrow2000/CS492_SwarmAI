@@ -9,14 +9,15 @@ import torch.nn as nn
 import torch.optim as optim
 from variables_n_utils import *
 
-MAX_MEMORY = 10_000
+MAX_MEMORY = 10_0000
 BATCH_SIZE = 100
 LR_ACTOR = 0.001
-LR_CRITIC = 0.002
-GAMMA = 0.95
+LR_CRITIC = 0.001
+GAMMA = 0.99
 TAU = 0.01
 NUM_ACTIONS = 4
 PLOT_LEARNING = True
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 '''
 - State
@@ -36,7 +37,16 @@ state:
 - hidden state: absolute coordinate of the fish
 - observed state: relative coordinates of other fish / shark
 '''
-
+def gumbel_softmax(logits, tau=1, hard=False):
+    gumbels = -torch.empty_like(logits).exponential_().log()  # Sample from Gumbel distribution
+    y = (logits + gumbels) / tau
+    y = torch.softmax(y, dim=-1)
+    if hard:
+        # To make it a one-hot vector, take the argmax
+        _, ind = y.max(dim=-1, keepdim=True)
+        y_hard = torch.zeros_like(logits).scatter_(-1, ind, 1)
+        y = y_hard - y.detach() + y
+    return y
 class Actor(nn.Module):
     def __init__(self, input_dim, hidden_dim, output_dim):
         super(Actor, self).__init__()
@@ -223,9 +233,9 @@ class MADDPGAgent(Agent):
         self.actor_targets = [Actor(state_dim, hidden_dim, action_dim) for _ in range(num_agents)]
         self.actor_optimizers = [optim.Adam(actor.parameters(), lr=LR_ACTOR) for actor in self.actors]
 
-        self.critic = Critic(state_dim * num_agents + action_dim * num_agents, hidden_dim, 1)
-        self.critic_target = Critic(state_dim * num_agents + action_dim * num_agents, hidden_dim, 1)
-        self.critic_optimizer = optim.Adam(self.critic.parameters(), lr=LR_CRITIC)
+        self.critic = [Critic(state_dim * num_agents + action_dim * num_agents, hidden_dim, 1)for _ in range(num_agents)]
+        self.critic_target = [Critic(state_dim * num_agents + action_dim * num_agents, hidden_dim, 1) for _ in range(num_agents)]
+        self.critic_optimizer =[optim.Adam(critic.parameters(), lr=LR_CRITIC) for critic in self.critic]
 
         self.memory = deque(maxlen=MAX_MEMORY)
         self.gamma = GAMMA
@@ -234,18 +244,20 @@ class MADDPGAgent(Agent):
 
         for actor, target in zip(self.actors, self.actor_targets):
             target.load_state_dict(actor.state_dict())
-        self.critic_target.load_state_dict(self.critic.state_dict())
+        for cri, tar in zip(self.critic, self.critic_target):
+            tar.load_state_dict(cri.state_dict())
 
     def remember(self, state, action, reward, next_state, done):
         self.memory.append((state, action, reward, next_state, done))
 
     def act(self, state, agent_index):
         state = torch.tensor(state, dtype=torch.float)
-        action_probs = self.actors[agent_index](state)
-        action = np.random.choice(self.action_dim, p=action_probs.detach().numpy())
-        action_onehot = np.zeros(self.action_dim)
+        self.actors[agent_index].to('cpu')
+        action_probs = self.actors[agent_index](state.unsqueeze(0))  # state를 GPU로 이동시킴
+        action = torch.multinomial(action_probs.squeeze(0), 1).item()
+        action_onehot = torch.zeros(self.action_dim, device=device)
         action_onehot[action] = 1
-        return action_onehot
+        return action_onehot.cpu().numpy()
 
     def soft_update(self, local_model, target_model, tau):
         for target_param, local_param in zip(target_model.parameters(), local_model.parameters()):
@@ -255,50 +267,56 @@ class MADDPGAgent(Agent):
         if len(self.memory) < BATCH_SIZE:
             return
         mini_batch = random.sample(self.memory, BATCH_SIZE)
-        for state, action, reward, next_state, done in mini_batch:
-            state = torch.tensor(state, dtype=torch.float)
-            action = torch.tensor(action, dtype=torch.float)
-            reward = torch.tensor(reward, dtype=torch.float)
-            next_state = torch.tensor(next_state, dtype=torch.float)
-            done = torch.tensor(done, dtype=torch.float)
-
+        states, actions, rewards, next_states, dones = zip(*mini_batch)
+        states = torch.tensor(np.array(states), dtype=torch.float).to(device)
+        actions = torch.tensor(np.array(actions), dtype=torch.float).to(device)
+        rewards = torch.tensor(np.array(rewards), dtype=torch.float).unsqueeze(1).to(device)
+        next_states = torch.tensor(np.array(next_states), dtype=torch.float).to(device)
+        dones = torch.tensor(np.array(dones), dtype=torch.float).unsqueeze(1).to(device)
             # Update critic
-            next_actions=[]
-            for i in range(self.num_agents):
-                action_probs = self.actors[i](state)
-                act = np.random.choice(self.action_dim, p=action_probs[i].detach().numpy())
-                action_onehot = np.zeros(self.action_dim)
-                action_onehot[act] = 1
-                action_onehot=torch.tensor(action_onehot, dtype=torch.float)
-                next_actions.append(action_onehot)
-            next_actions = torch.cat(next_actions, dim=0)
-            next_state_action = torch.cat((next_state.view(self.state_dim*self.num_agents), next_actions), dim=0)
-            target_q = reward + (1 - done) * self.gamma * self.critic_target(next_state_action)
-            expected_q = self.critic(torch.cat((state.view(self.state_dim*self.num_agents), action.view(self.num_agents*self.action_dim)), dim=0))
+       
+        next_actions=[]
+        for i in range(self.num_agents):
+            self.actor_targets[i].to(device)
+            self.actors[i].to(device)
+            action_probs = self.actor_targets[i](next_states[:, i, :])
+            actions_sampled = torch.multinomial(action_probs, 1)
+            action_onehot = torch.zeros(BATCH_SIZE, self.action_dim,device=device)
+            action_onehot.scatter_(1, actions_sampled, 1)
+            next_actions.append(action_onehot)
+            
+        next_actions = torch.stack(next_actions, dim=1)
+        next_state_action = torch.cat((next_states.view(BATCH_SIZE, -1), next_actions.view(BATCH_SIZE, -1)), dim=1)
+        for i in range(self.num_agents):
+            self.critic_target[i].to(device)
+            self.critic[i].to(device)
+            target_q = rewards + (1 - dones) * self.gamma * self.critic_target[i](next_state_action)
+            expected_q = self.critic[i](torch.cat((states.view(BATCH_SIZE, -1), actions.view(BATCH_SIZE, -1)), dim=1))
             critic_loss = nn.MSELoss()(expected_q, target_q.detach())
-            self.critic_optimizer.zero_grad()
+            self.critic_optimizer[i].zero_grad()
             critic_loss.backward()
-            self.critic_optimizer.step()
-
+            self.critic_optimizer[i].step()
+            
             # Update actors
-            for i in range(self.num_agents):
-                self.actor_optimizers[i].zero_grad()
-                self.actors[i](state[i])
-                current_actions=action.clone()
-                act = np.random.choice(self.action_dim, p=action_probs[i].detach().numpy())
-                action_onehot = np.zeros(self.action_dim)
-                action_onehot[act] = 1
-                action_onehot=torch.tensor(action_onehot, dtype=torch.float)
-                current_actions[i]=action_onehot
-                
-                actor_loss = -self.critic(torch.cat((state.view(self.state_dim*self.num_agents), current_actions.view(self.action_dim*self.num_agents)), dim=0)).mean()
-                actor_loss.backward()
-                self.actor_optimizers[i].step()
-
+        for i in range(self.num_agents):
+            
+            action_pred = self.actors[i](states[:, i, :])
+            current_actions = actions.clone()
+            current_actions[:, i, :] = action_pred
+            actor_loss = -self.critic[i](torch.cat((states.view(BATCH_SIZE, -1), current_actions.view(BATCH_SIZE, -1)), dim=1)).mean()
+            self.actor_optimizers[i].zero_grad()
+            actor_loss.backward()
+            self.actor_optimizers[i].step()
+            # for param in self.actors[i].parameters():
+            #     print(param.grad)
             # Soft update target networks
-            self.soft_update(self.critic, self.critic_target, self.tau)
-            for actor, target in zip(self.actors, self.actor_targets):
-                self.soft_update(actor, target, self.tau)
+
+
+        for cri, tar in zip(self.critic, self.critic_target):
+            self.soft_update(cri, tar, self.tau)
+        for actor, target in zip(self.actors, self.actor_targets):
+            self.soft_update(actor, target, self.tau)
+
 
 
 
@@ -322,6 +340,7 @@ def train():
         '''
         state_olds = []
         final_moves = []
+        
         for i in range(len(game.fish_list)):
             # if (i >= len(game.fish_list)):
             #     break # go to next loop if fish do not exist
@@ -338,7 +357,7 @@ def train():
             state_news.append(cur_state_new)
         
         agent.remember(state_olds, final_moves, reward, state_news, done)
-        if iters%500==0:
+        if iters%100==0:
             agent.train()
         if done:
             game.reset()
@@ -346,7 +365,6 @@ def train():
             if score > record:
                 record = score
                 agent.model.save()
-
             print('Game', agent.n_games, 'Score', score, 'Record: ', record)
 
             # plotting
