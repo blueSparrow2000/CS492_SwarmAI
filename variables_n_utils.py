@@ -15,7 +15,7 @@ BLOCK_SIZE = 20
 SPEED = 1000#60
 
 # fish variable
-INITIAL_FISH_NUM = 10#5
+INITIAL_FISH_NUM = 5#5
 
 # rewards
 REWARD_EVERY_STEP = 1

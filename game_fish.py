@@ -18,7 +18,7 @@ class Shark():
         self.y = 0
         self.target_fish_idx = 0
         self.id = -1  # not a fish
-        self.size = 3  # size threshold
+        self.size = 2  # size threshold
         self.target_reset_cooltime = 10 # cannot change target for 5 attempts
         self.target_reset_count = 0
 
@@ -176,7 +176,7 @@ class SnakeGameAI:
         # reward = REWARD_EVERY_STEP # +1 for every step
         game_over = False
         #if self.is_collision()[0] or self.frame_iteration > 1000: # nothing happens for too long
-        if self.frame_iteration > 500: # survives long enough
+        if self.frame_iteration > 2000: # survives long enough
             game_over = True
             # reward = REWARD_GET_EATEN
             return reward, game_over, self.score
