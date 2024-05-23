@@ -164,10 +164,12 @@ class SnakeGameAI:
         self._move(actions)  # update the head
 
         # 3. move and update shark / check fish eaten
+        shark_x, shark_y = self.shark.x, self.shark.y
         self.shark.move(self.fish_list)
+        next_shark_x, next_shark_y = self.shark.x, self.shark.y
         # 잡아먹히면 보상 -1
         reward = 0  
-        if self.check_eaten():
+        if self.check_eaten(shark_x, shark_y, next_shark_x, next_shark_y):
             reward = -1  # 물고기가 잡아먹혔을 때 보상은 -1
 
         # 4. check if game over
@@ -187,13 +189,13 @@ class SnakeGameAI:
         #     self._place_food()
 
         # 5. update ui and clock
-        # self._update_ui()
+        self._update_ui()
         self.clock.tick(SPEED)
         self.score += reward
         # 6. return game over and score
         return reward, game_over, self.score
     
-    def check_eaten(self):
+    def check_eaten(self, shark_x, shark_y, next_shark_x, next_shark_y):
     #     for fish in self.fish_list:
     #         if fish.detect_collision(self.shark):
     #             fish.update_state(False)
@@ -208,7 +210,51 @@ class SnakeGameAI:
                 fish.update_state(True)
                 self.shark.reset_target(self.fish_list)
                 return True
+            elif self.is_fish_in_shark_path(shark_x, shark_y, next_shark_x, next_shark_y, fish):
+                fish.x = BLOCK_SIZE * random.randint(self.w // (4 * BLOCK_SIZE), 3 * self.w // (4 * BLOCK_SIZE))
+                fish.y = BLOCK_SIZE * random.randint(self.h // (4 * BLOCK_SIZE), 3 * self.h // (4 * BLOCK_SIZE))
+                fish.update_state(True)
+                self.shark.reset_target(self.fish_list)
+                return True
         return False
+    
+    def is_fish_in_shark_path(self, shark_x, shark_y, next_shark_x, next_shark_y, fish):
+        # 상어가 수평으로 움직일 때
+        if shark_x != next_shark_x:
+        # 상어가 오른쪽으로 움직이는 경우
+            if next_shark_x > shark_x:
+                if self.is_in_horizontal_path(shark_x, next_shark_x, fish.x) and fish.y == shark_y:
+                    return True
+            # 상어가 왼쪽으로 움직이는 경우
+            else:
+                if self.is_in_horizontal_path(next_shark_x, shark_x, fish.x) and fish.y == shark_y:
+                    return True
+        elif shark_y != next_shark_y:
+            # 상어가 아래로 움직이는 경우
+            if next_shark_y > shark_y:
+                if self.is_in_vertical_path(shark_y, next_shark_y, fish.y) and fish.x == shark_x:
+                    return True
+            # 상어가 위로 움직이는 경우
+            else:
+                if self.is_in_vertical_path(next_shark_y, shark_y, fish.y) and fish.x == shark_x:
+                    return True
+        return False
+    
+    def is_in_horizontal_path(self, x1, x2, fx):
+        if x1 < x2:
+            # 경계를 넘지 않는 경우
+            return x1 <= fx <= x2
+        else:
+            # 경계를 넘는 경우
+            return x1 <= fx or fx <= x2
+
+    def is_in_vertical_path(self, y1, y2, fy):
+        if y1 < y2:
+            # 경계를 넘지 않는 경우
+            return y1 <= fy <= y2
+        else:
+            # 경계를 넘는 경우
+            return y1 <= fy or fy <= y2
 
     def collision_fish(self, x, y):  # check collision among fish => no op
         for fish in self.fish_list:

@@ -318,9 +318,6 @@ class MADDPGAgent(Agent):
             self.soft_update(actor, target, self.tau)
 
 
-
-
-
 def train():
     plot_scores = []
     plot_mean_scores = []
