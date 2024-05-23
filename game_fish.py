@@ -218,10 +218,10 @@ class SnakeGameAI:
         # reward = REWARD_EVERY_STEP # +1 for every step
         game_over = False
         
-        # 살아있는 물고기가 없으면 게임 종료
-        if all(not fish.alive for fish in self.fish_list):
-            game_over = True
-            return reward, game_over, self.score
+        # # 살아있는 물고기가 없으면 게임 종료
+        # if all(not fish.alive for fish in self.fish_list):
+        #     game_over = True
+        #     return reward, game_over, self.score
         
         #if self.is_collision()[0] or self.frame_iteration > 1000: # nothing happens for too long
         if self.frame_iteration > 2000: # survives long enough
@@ -244,27 +244,34 @@ class SnakeGameAI:
         return reward, game_over, self.score
     
     def check_eaten(self, shark_x, shark_y, next_shark_x, next_shark_y):
-        for fish in self.fish_list:
-            if fish.detect_collision(self.shark):
-                fish.update_state(False)
-                # self.fish_list.remove(fish)
-                return True
-        return False
-        # 잡히면 랜덤 리스폰
         # for fish in self.fish_list:
         #     if fish.detect_collision(self.shark):
-        #         fish.x = BLOCK_SIZE * random.randint(self.w // (4 * BLOCK_SIZE), 3 * self.w // (4 * BLOCK_SIZE))
-        #         fish.y = BLOCK_SIZE * random.randint(self.h // (4 * BLOCK_SIZE), 3 * self.h // (4 * BLOCK_SIZE))
-        #         fish.update_state(True)
-        #         self.shark.reset_target(self.fish_list)
-        #         return True
-        #     elif self.is_fish_in_shark_path(shark_x, shark_y, next_shark_x, next_shark_y, fish):
-        #         fish.x = BLOCK_SIZE * random.randint(self.w // (4 * BLOCK_SIZE), 3 * self.w // (4 * BLOCK_SIZE))
-        #         fish.y = BLOCK_SIZE * random.randint(self.h // (4 * BLOCK_SIZE), 3 * self.h // (4 * BLOCK_SIZE))
-        #         fish.update_state(True)
-        #         self.shark.reset_target(self.fish_list)
+        #         fish.update_state(False)
+        #         # self.fish_list.remove(fish)
         #         return True
         # return False
+        # 잡히면 랜덤 리스폰
+        for fish in self.fish_list:
+            if fish.detect_collision(self.shark) or self.is_fish_in_shark_path(shark_x, shark_y, next_shark_x, next_shark_y, fish):
+                self.respawn_fish(fish)
+                self.shark.reset_target(self.fish_list)
+                return True
+        return False
+    
+    def respawn_fish(self, fish):
+        # while True:
+        new_x = BLOCK_SIZE * random.randint(self.w // (4 * BLOCK_SIZE), 3 * self.w // (4 * BLOCK_SIZE))
+        new_y = BLOCK_SIZE * random.randint(self.h // (4 * BLOCK_SIZE), 3 * self.h // (4 * BLOCK_SIZE))
+        fish.x = new_x
+        fish.y = new_y
+            # dx = min(abs(new_x - self.shark.x), WIDTH - abs(new_x - self.shark.x))
+            # dy = min(abs(new_y - self.shark.y), HEIGHT - abs(new_y - self.shark.y))
+            # distance = math.sqrt(dx ** 2 + dy ** 2)
+            # if distance >= min(WIDTH // 2, HEIGHT // 2):
+            #     fish.x = new_x
+            #     fish.y = new_y
+            #     fish.update_state(True)
+            #     break
     
     def is_fish_in_shark_path(self, shark_x, shark_y, next_shark_x, next_shark_y, fish):
         # 상어가 수평으로 움직일 때
