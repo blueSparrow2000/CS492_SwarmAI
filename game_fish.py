@@ -197,14 +197,15 @@ class SnakeGameAI:
         if closest_fish_idx != -1:
             self.shark.target_fish_idx = closest_fish_idx
             
-        # 가까이 있으면 부스터 쓰게 하기
+        
         speed_multiplier = 1
-        closest_fish = get_fish_by_id(self.fish_list, self.shark.target_fish_idx)
-        dx = min(abs(closest_fish.x - self.shark.x), WIDTH - abs(closest_fish.x - self.shark.x))
-        dy = min(abs(closest_fish.y - self.shark.y), HEIGHT - abs(closest_fish.y - self.shark.y))
-        distance = math.sqrt(dx ** 2 + dy ** 2)
-        if distance <= RULE_1_RADIUS:
-            speed_multiplier = 2
+        # 가까이 있으면 부스터 쓰게 하기
+        # closest_fish = get_fish_by_id(self.fish_list, self.shark.target_fish_idx)
+        # dx = min(abs(closest_fish.x - self.shark.x), WIDTH - abs(closest_fish.x - self.shark.x))
+        # dy = min(abs(closest_fish.y - self.shark.y), HEIGHT - abs(closest_fish.y - self.shark.y))
+        # distance = math.sqrt(dx ** 2 + dy ** 2)
+        # if distance <= RULE_1_RADIUS:
+        #     speed_multiplier = 2
         
         self.shark.move(self.fish_list, speed_multiplier)
         # 상어의 경로에 있어도 잡아먹히는 것으로 하기 위한 변수

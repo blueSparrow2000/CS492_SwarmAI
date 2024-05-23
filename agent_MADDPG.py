@@ -11,7 +11,7 @@ from variables_n_utils import *
 import math
 
 MAX_MEMORY = 100000
-BATCH_SIZE = 500
+BATCH_SIZE = 2000
 LR_ACTOR = 0.001
 LR_CRITIC = 0.001
 GAMMA = 0.99
