@@ -331,6 +331,7 @@ class MADDPGAgent(Agent):
 def train():
     plot_scores = []
     plot_mean_scores = []
+    top_ten_scores = deque(maxlen=10)
     total_score = 0
     record = -999 # best score
     agent = MADDPGAgent(INITIAL_FISH_NUM, 8, 4)
@@ -377,8 +378,10 @@ def train():
             # plotting
             if PLOT_LEARNING:
                 plot_scores.append(score)
-                total_score += score
-                mean_score = total_score / agent.n_games
+                top_ten_scores.appendleft(score)
+                # total_score += score
+                # mean_score = total_score / agent.n_games
+                mean_score = sum(top_ten_scores) / len(top_ten_scores)
                 plot_mean_scores.append(mean_score)
                 plot(plot_scores, plot_mean_scores)
 
