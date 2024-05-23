@@ -251,7 +251,7 @@ class MADDPGAgent(Agent):
         self.memory.append((state, action, reward, next_state, done))
 
     def act(self, state, agent_index):
-        state = torch.tensor(state, dtype=torch.float)
+        state = torch.tensor(state, dtype=torch.float).to(device)
         self.actors[agent_index].to(device)
         action_probs = self.actors[agent_index](state.unsqueeze(0))  # state를 GPU로 이동시킴
         action = torch.multinomial(action_probs.squeeze(0), 1).item()
