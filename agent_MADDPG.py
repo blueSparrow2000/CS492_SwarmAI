@@ -229,12 +229,12 @@ class MADDPGAgent(Agent):
         self.state_dim = state_dim
         self.action_dim = action_dim
 
-        self.actors = [Actor(state_dim, hidden_dim, action_dim) for _ in range(num_agents)]
-        self.actor_targets = [Actor(state_dim, hidden_dim, action_dim) for _ in range(num_agents)]
+        self.actors = [Actor(state_dim, hidden_dim, action_dim).to(device) for _ in range(num_agents)]
+        self.actor_targets = [Actor(state_dim, hidden_dim, action_dim).to(device) for _ in range(num_agents)]
         self.actor_optimizers = [optim.Adam(actor.parameters(), lr=LR_ACTOR) for actor in self.actors]
 
-        self.critic = [Critic(state_dim * num_agents + action_dim * num_agents, hidden_dim, 1)for _ in range(num_agents)]
-        self.critic_target = [Critic(state_dim * num_agents + action_dim * num_agents, hidden_dim, 1) for _ in range(num_agents)]
+        self.critic = [Critic(state_dim * num_agents + action_dim * num_agents, hidden_dim, 1).to(device) for _ in range(num_agents)]
+        self.critic_target = [Critic(state_dim * num_agents + action_dim * num_agents, hidden_dim, 1).to(device) for _ in range(num_agents)]
         self.critic_optimizer =[optim.Adam(critic.parameters(), lr=LR_CRITIC) for critic in self.critic]
 
         self.memory = deque(maxlen=MAX_MEMORY)
