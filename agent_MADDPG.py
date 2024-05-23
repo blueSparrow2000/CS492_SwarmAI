@@ -9,10 +9,10 @@ import torch.nn as nn
 import torch.optim as optim
 from variables_n_utils import *
 
-MAX_MEMORY = 10_0000
-BATCH_SIZE = 200
-LR_ACTOR = 0.0001
-LR_CRITIC = 0.0001
+MAX_MEMORY = 100000
+BATCH_SIZE = 64
+LR_ACTOR = 0.001
+LR_CRITIC = 0.001
 GAMMA = 0.99
 TAU = 0.01
 NUM_ACTIONS = 4
@@ -252,7 +252,7 @@ class MADDPGAgent(Agent):
 
     def act(self, state, agent_index):
         state = torch.tensor(state, dtype=torch.float)
-        self.actors[agent_index].to('cpu')
+        self.actors[agent_index].to(device)
         action_probs = self.actors[agent_index](state.unsqueeze(0))  # state를 GPU로 이동시킴
         action = torch.multinomial(action_probs.squeeze(0), 1).item()
         action_onehot = torch.zeros(self.action_dim, device=device)
