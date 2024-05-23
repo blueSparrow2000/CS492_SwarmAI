@@ -3,7 +3,7 @@ import random
 from collections import namedtuple
 import numpy as np
 from variables_n_utils import *
-from fish import Fish
+from fish import *
 import math
 
 pygame.init()
@@ -18,13 +18,13 @@ class Shark():
         self.y = 0
         self.target_fish_idx = 0
         self.id = -1  # not a fish
-        self.size = 2  # size threshold
+        self.size = 4  # size threshold
         self.target_reset_cooltime = 10 # cannot change target for 5 attempts
         self.target_reset_count = 0
 
     ######################### shark behavior functions ###############################
 
-    def get_close(self, target_fish):  # target fish를 인자로 받도록 수정
+    def get_close(self, target_fish, speed_multiplier=1):  # target fish를 인자로 받도록 수정
         dx = target_fish.x - self.x
         dy = target_fish.y - self.y
 
@@ -34,14 +34,26 @@ class Shark():
         if (abs(dy) > HEIGHT // 2):
             dy = dy - HEIGHT if dy > 0 else dy + HEIGHT
 
-        # 절대값을 보고 x, y의 스칼라 값만 먼저 결정
-        move_x = SHARK_MOVE_STEP if abs(dx) > abs(dy) else BLOCK_SIZE if dx != 0 else 0
-        move_y = SHARK_MOVE_STEP if abs(dy) > abs(dx) else BLOCK_SIZE if dy != 0 else 0
+        abs_dx = abs(dx)
+        abs_dy = abs(dy)
+        
+        max_speed = speed_multiplier * SHARK_SPEED_FACTOR * BLOCK_SIZE
 
-        # 대각선으로 움직여야 하지만 shark_move_step을 넘어가면 안됨 -> x, y의 값을 1로 조정
-        if move_x + move_y > SHARK_MOVE_STEP:
-            move_x = BLOCK_SIZE
-            move_y = BLOCK_SIZE
+        if abs_dx >= abs_dy:
+            move_x = min(max_speed, abs_dx)
+            remaining_speed = max_speed - move_x
+            move_y = min(remaining_speed, abs_dy)
+        else:
+            move_y = min(max_speed, abs_dy)
+            remaining_speed = max_speed - move_y
+            move_x = min(remaining_speed, abs_dx)
+        # move_x = SHARK_MOVE_STEP if abs(dx) > abs(dy) else BLOCK_SIZE if dx != 0 else 0
+        # move_y = SHARK_MOVE_STEP if abs(dy) > abs(dx) else BLOCK_SIZE if dy != 0 else 0
+
+        # # 대각선으로 움직여야 하지만 shark_move_step을 넘어가면 안됨 -> x, y의 값을 1로 조정
+        # if move_x + move_y > SHARK_MOVE_STEP:
+        #     move_x = BLOCK_SIZE
+        #     move_y = BLOCK_SIZE
 
         # x, y의 부호를 결정
         self.x += move_x * (1 if dx > 0 else -1)
@@ -52,11 +64,11 @@ class Shark():
     def check_target_alive(self, n):
         return self.target_fish_idx < n
 
-    def move(self, fish_list):
+    def move(self, fish_list, speed_multiplier=1):
         # move towards the target twice
         if self.check_target_alive(len(fish_list)) and self.measure_fish_size(fish_list) < self.size:  # target fish alive
             target_fish = fish_list[self.target_fish_idx]
-            self.get_close(target_fish)
+            self.get_close(target_fish, speed_multiplier)
         else:
             # pass
             # randomly select target
@@ -165,7 +177,31 @@ class SnakeGameAI:
 
         # 3. move and update shark / check fish eaten
         shark_x, shark_y = self.shark.x, self.shark.y
-        self.shark.move(self.fish_list)
+        
+        # 가장 가까운 물고기를 찾고 target으로 설정
+        min_distance = float('inf')
+        closest_fish_idx = -1
+        for idx, fish in enumerate(self.fish_list):
+            dx = min(abs(fish.x - shark_x), WIDTH - abs(fish.x - shark_x))
+            dy = min(abs(fish.y - shark_y), HEIGHT - abs(fish.y - shark_y))
+            distance = math.sqrt(dx ** 2 + dy ** 2)
+            if distance < min_distance:
+                min_distance = distance
+                closest_fish_idx = idx
+
+        if closest_fish_idx != -1:
+            self.shark.target_fish_idx = closest_fish_idx
+            
+        # 상어 속도 조정
+        speed_multiplier = 1
+        closest_fish = get_fish_by_id(self.fish_list, self.shark.target_fish_idx)
+        dx = min(abs(closest_fish.x - self.shark.x), WIDTH - abs(closest_fish.x - self.shark.x))
+        dy = min(abs(closest_fish.y - self.shark.y), HEIGHT - abs(closest_fish.y - self.shark.y))
+        distance = math.sqrt(dx ** 2 + dy ** 2)
+        if distance <= RULE_1_RADIUS:
+            speed_multiplier = 2
+        
+        self.shark.move(self.fish_list, speed_multiplier)
         next_shark_x, next_shark_y = self.shark.x, self.shark.y
         # 잡아먹히면 보상 -1
         reward = 0  

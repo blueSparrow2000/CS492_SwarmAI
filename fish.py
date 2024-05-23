@@ -31,3 +31,9 @@ class Fish:
             return False
         if self.x == other.x and self.y == other.y: # collision
             return True
+
+def get_fish_by_id(fish_list, id):
+    for fish in fish_list:
+        if fish.id == id:
+            return fish
+    return None

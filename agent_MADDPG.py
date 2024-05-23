@@ -10,7 +10,7 @@ import torch.optim as optim
 from variables_n_utils import *
 
 MAX_MEMORY = 100000
-BATCH_SIZE = 64
+BATCH_SIZE = 500
 LR_ACTOR = 0.001
 LR_CRITIC = 0.001
 GAMMA = 0.99
