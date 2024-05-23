@@ -8,6 +8,7 @@ from helper import plot
 import torch.nn as nn
 import torch.optim as optim
 from variables_n_utils import *
+import math
 
 MAX_MEMORY = 100000
 BATCH_SIZE = 500
@@ -91,33 +92,38 @@ class Agent:
         fish = game.fish_list[fish_to_update]
         shark = game.shark
         
+        # 상어 거리 계산
+        dx_shark = min(abs(shark.x - fish.x), WIDTH - abs(shark.x - fish.x))
+        dy_shark = min(abs(shark.y - fish.y), HEIGHT - abs(shark.y - fish.y))
+        shark_distance = math.sqrt(dx_shark ** 2 + dy_shark ** 2)
+        
         shark_up = 0
         shark_down = 0
         shark_left = 0
         shark_right = 0
-        # [상 하 좌 우]
-        # 다른 물고기와 x 좌표 비교 후 오른쪽 +1 할지 왼쪽 +1 할지 결정
-        if shark.x > fish.x:
-            if abs(shark.x - fish.x) > (WIDTH - abs(shark.x - fish.x)):
-                shark_left = 1
-            else:
-                shark_right = 1
-        elif shark.x < fish.x:
-            if abs(shark.x - fish.x) > (WIDTH - abs(shark.x - fish.x)):
-                shark_right = 1
-            else:
-                shark_left = 1
-        # 다른 물고기와 y 좌표 비교 후 위 1 할지 아래 1 할지 결정
-        if shark.y > fish.y:
-            if abs(shark.y - fish.y) > (WIDTH - abs(shark.y - fish.y)):
-                shark_down = 1
-            else:
-                shark_up = 1
-        elif shark.y < fish.y:
-            if abs(shark.y - fish.y) > (WIDTH - abs(shark.y - fish.y)):
-                shark_up = 1
-            else:
-                shark_down = 1
+        
+        # 물고기 시야 안에 상어가 있는 경우에만 상어의 방향을 알려줌
+        if shark_distance <= FISH_VISION * BLOCK_SIZE:
+            if shark.x > fish.x:
+                if abs(shark.x - fish.x) > (WIDTH - abs(shark.x - fish.x)):
+                    shark_left = 1
+                else:
+                    shark_right = 1
+            elif shark.x < fish.x:
+                if abs(shark.x - fish.x) > (WIDTH - abs(shark.x - fish.x)):
+                    shark_right = 1
+                else:
+                    shark_left = 1
+            if shark.y > fish.y:
+                if abs(shark.y - fish.y) > (HEIGHT - abs(shark.y - fish.y)):
+                    shark_down = 1
+                else:
+                    shark_up = 1
+            elif shark.y < fish.y:
+                if abs(shark.y - fish.y) > (HEIGHT - abs(shark.y - fish.y)):
+                    shark_up = 1
+                else:
+                    shark_down = 1
         
         # sort nearby fishes by distance and excludes the fish (me)
         sorted_fish_list = sort_by_distance(game.fish_list, fish)
@@ -130,30 +136,34 @@ class Agent:
         for other_fish in  sorted_fish_list:
             if (other_fish.id == fish.id):
                 continue
+            
+            dx = min(abs(other_fish.x - fish.x), WIDTH - abs(other_fish.x - fish.x))
+            dy = min(abs(other_fish.y - fish.y), HEIGHT - abs(other_fish.y - fish.y))
+            distance = math.sqrt(dx ** 2 + dy ** 2)
 
             # [상 하 좌 우]
             # 다른 물고기와 x 좌표 비교 후 오른쪽 +1 할지 왼쪽 +1 할지 결정
-            if other_fish.x > fish.x:
-                if abs(other_fish.x - fish.x) > (WIDTH - abs(other_fish.x - fish.x)):
-                    left += 1
-                else:
-                    right += 1
-            elif other_fish.x < fish.x:
-                if abs(other_fish.x - fish.x) > (WIDTH - abs(other_fish.x - fish.x)):
-                    right += 1
-                else:
-                    left += 1
-            # 다른 물고기와 y 좌표 비교 후 위 +1 할지 아래 +1 할지 결정
-            if other_fish.y > fish.y:
-                if abs(other_fish.y - fish.y) > (WIDTH - abs(other_fish.y - fish.y)):
-                    down += 1
-                else:
-                    up += 1
-            elif other_fish.y < fish.y:
-                if abs(other_fish.y - fish.y) > (WIDTH - abs(other_fish.y - fish.y)):
-                    up += 1
-                else:
-                    down += 1
+            if distance <= FISH_VISION * BLOCK_SIZE:
+                if other_fish.x > fish.x:
+                    if abs(other_fish.x - fish.x) > (WIDTH - abs(other_fish.x - fish.x)):
+                        left += 1
+                    else:
+                        right += 1
+                elif other_fish.x < fish.x:
+                    if abs(other_fish.x - fish.x) > (WIDTH - abs(other_fish.x - fish.x)):
+                        right += 1
+                    else:
+                        left += 1
+                if other_fish.y > fish.y:
+                    if abs(other_fish.y - fish.y) > (HEIGHT - abs(other_fish.y - fish.y)):
+                        down += 1
+                    else:
+                        up += 1
+                elif other_fish.y < fish.y:
+                    if abs(other_fish.y - fish.y) > (HEIGHT - abs(other_fish.y - fish.y)):
+                        up += 1
+                    else:
+                        down += 1
 
         # other fish's relative vector
         # other_fish_state = []

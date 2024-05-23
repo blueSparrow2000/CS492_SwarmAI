@@ -16,6 +16,7 @@ SPEED = 6000#60
 
 # fish variable
 INITIAL_FISH_NUM = 4#5
+FISH_VISION = 10
 
 # rewards
 REWARD_EVERY_STEP = 1
