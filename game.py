@@ -73,7 +73,7 @@ class SnakeGameAI:
         reward = REWARD_EVERY_STEP # +1 for every step
         game_over = False
         #if self.is_collision()[0] or self.frame_iteration > 1000: # nothing happens for too long
-        if len(self.fish_list) == 0 or self.frame_iteration > 1000: # survives long enough
+        if len(self.fish_list) == 0 or self.frame_iteration > 2000: # survives long enough
             game_over = True
             reward = REWARD_GET_EATEN
             return reward, game_over, self.score
