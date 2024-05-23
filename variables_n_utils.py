@@ -15,7 +15,7 @@ BLOCK_SIZE = 20
 SPEED = 6000#60
 
 # fish variable
-INITIAL_FISH_NUM = 4#5
+INITIAL_FISH_NUM = 10#5
 FISH_VISION = WIDTH//BLOCK_SIZE * 2
 
 # rewards
@@ -29,6 +29,7 @@ SHARK_REWARD_EVERY_STEP = -1
 SHARK_SPEED_FACTOR = 2
 SHARK_MOVE_STEP = BLOCK_SIZE*SHARK_SPEED_FACTOR
 RULE_1_RADIUS = BLOCK_SIZE*4
+SHARK_SIZE = 5
 
 
 def bound_less_domain(x, y):  # danger information should be included

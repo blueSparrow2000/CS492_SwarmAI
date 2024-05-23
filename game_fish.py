@@ -18,7 +18,7 @@ class Shark():
         self.y = 0
         self.target_fish_idx = 0
         self.id = -1  # not a fish
-        self.size = 4  # size threshold
+        self.size = SHARK_SIZE  # size threshold
         self.target_reset_cooltime = 10 # cannot change target for 5 attempts
         self.target_reset_count = 0
 
@@ -85,7 +85,7 @@ class Shark():
         # RULE 1
         fish_nearby = 0
         for idx in range(len(fish_list)):
-            if idx == self.target_fish_idx:
+            if idx == self.target_fish_idx or not get_fish_by_id(fish_list, idx).alive:
                 continue
             cur_fish = fish_list[idx]
             
@@ -107,9 +107,12 @@ class Shark():
         return fish_nearby + 1
 
     def reset_target(self, fish_list):
-        self.target_fish_idx = random.randint(0, len(fish_list) - 1)
+        alive_fish_indices = [i for i, fish in enumerate(fish_list) if fish.alive]
+        if alive_fish_indices:
+            self.target_fish_idx = random.choice(alive_fish_indices)
+        else:
+            self.target_fish_idx = None  # or handle the case when no fish is alive
         return self.target_fish_idx
-        # print('target reset to ', self.target_fish_idx)
         
     def set_target(self, fish_list, target_id):
         for i in range(len(fish_list)):
@@ -156,12 +159,12 @@ class SnakeGameAI:
         self.frame_iteration = 0
 
 
-    def _place_food(self):
-        x = random.randint(0, (self.w - BLOCK_SIZE) // BLOCK_SIZE) * BLOCK_SIZE
-        y = random.randint(0, (self.h - BLOCK_SIZE) // BLOCK_SIZE) * BLOCK_SIZE
-        self.food = Point(x, y, 0)
-        if self.food in self.fish_list:
-            self._place_food()
+    # def _place_food(self):
+    #     x = random.randint(0, (self.w - BLOCK_SIZE) // BLOCK_SIZE) * BLOCK_SIZE
+    #     y = random.randint(0, (self.h - BLOCK_SIZE) // BLOCK_SIZE) * BLOCK_SIZE
+    #     self.food = Point(x, y, 0)
+    #     if self.food in self.fish_list:
+    #         self._place_food()
 
     def play_step(self, actions): # get actions from the agent
         self.frame_iteration += 1
@@ -182,6 +185,8 @@ class SnakeGameAI:
         min_distance = float('inf')
         closest_fish_idx = -1
         for idx, fish in enumerate(self.fish_list):
+            if not fish.alive:
+                continue
             dx = min(abs(fish.x - shark_x), WIDTH - abs(fish.x - shark_x))
             dy = min(abs(fish.y - shark_y), HEIGHT - abs(fish.y - shark_y))
             distance = math.sqrt(dx ** 2 + dy ** 2)
@@ -192,7 +197,7 @@ class SnakeGameAI:
         if closest_fish_idx != -1:
             self.shark.target_fish_idx = closest_fish_idx
             
-        # 상어 속도 조정
+        # 가까이 있으면 부스터 쓰게 하기
         speed_multiplier = 1
         closest_fish = get_fish_by_id(self.fish_list, self.shark.target_fish_idx)
         dx = min(abs(closest_fish.x - self.shark.x), WIDTH - abs(closest_fish.x - self.shark.x))
@@ -202,6 +207,7 @@ class SnakeGameAI:
             speed_multiplier = 2
         
         self.shark.move(self.fish_list, speed_multiplier)
+        # 상어의 경로에 있어도 잡아먹히는 것으로 하기 위한 변수
         next_shark_x, next_shark_y = self.shark.x, self.shark.y
         # 잡아먹히면 보상 -1
         reward = 0  
@@ -211,6 +217,12 @@ class SnakeGameAI:
         # 4. check if game over
         # reward = REWARD_EVERY_STEP # +1 for every step
         game_over = False
+        
+        # 살아있는 물고기가 없으면 게임 종료
+        if all(not fish.alive for fish in self.fish_list):
+            game_over = True
+            return reward, game_over, self.score
+        
         #if self.is_collision()[0] or self.frame_iteration > 1000: # nothing happens for too long
         if self.frame_iteration > 2000: # survives long enough
             game_over = True
@@ -232,27 +244,27 @@ class SnakeGameAI:
         return reward, game_over, self.score
     
     def check_eaten(self, shark_x, shark_y, next_shark_x, next_shark_y):
-    #     for fish in self.fish_list:
-    #         if fish.detect_collision(self.shark):
-    #             fish.update_state(False)
-    #             self.fish_list.remove(fish)
-    #             return True
-    #     return False
-    # 잡히면 랜덤 리스폰
         for fish in self.fish_list:
             if fish.detect_collision(self.shark):
-                fish.x = BLOCK_SIZE * random.randint(self.w // (4 * BLOCK_SIZE), 3 * self.w // (4 * BLOCK_SIZE))
-                fish.y = BLOCK_SIZE * random.randint(self.h // (4 * BLOCK_SIZE), 3 * self.h // (4 * BLOCK_SIZE))
-                fish.update_state(True)
-                self.shark.reset_target(self.fish_list)
-                return True
-            elif self.is_fish_in_shark_path(shark_x, shark_y, next_shark_x, next_shark_y, fish):
-                fish.x = BLOCK_SIZE * random.randint(self.w // (4 * BLOCK_SIZE), 3 * self.w // (4 * BLOCK_SIZE))
-                fish.y = BLOCK_SIZE * random.randint(self.h // (4 * BLOCK_SIZE), 3 * self.h // (4 * BLOCK_SIZE))
-                fish.update_state(True)
-                self.shark.reset_target(self.fish_list)
+                fish.update_state(False)
+                # self.fish_list.remove(fish)
                 return True
         return False
+        # 잡히면 랜덤 리스폰
+        # for fish in self.fish_list:
+        #     if fish.detect_collision(self.shark):
+        #         fish.x = BLOCK_SIZE * random.randint(self.w // (4 * BLOCK_SIZE), 3 * self.w // (4 * BLOCK_SIZE))
+        #         fish.y = BLOCK_SIZE * random.randint(self.h // (4 * BLOCK_SIZE), 3 * self.h // (4 * BLOCK_SIZE))
+        #         fish.update_state(True)
+        #         self.shark.reset_target(self.fish_list)
+        #         return True
+        #     elif self.is_fish_in_shark_path(shark_x, shark_y, next_shark_x, next_shark_y, fish):
+        #         fish.x = BLOCK_SIZE * random.randint(self.w // (4 * BLOCK_SIZE), 3 * self.w // (4 * BLOCK_SIZE))
+        #         fish.y = BLOCK_SIZE * random.randint(self.h // (4 * BLOCK_SIZE), 3 * self.h // (4 * BLOCK_SIZE))
+        #         fish.update_state(True)
+        #         self.shark.reset_target(self.fish_list)
+        #         return True
+        # return False
     
     def is_fish_in_shark_path(self, shark_x, shark_y, next_shark_x, next_shark_y, fish):
         # 상어가 수평으로 움직일 때
@@ -304,7 +316,7 @@ class SnakeGameAI:
 
         # fishes
         for fish in self.fish_list:
-            color = RED if fish.id == self.shark.target_fish_idx else GREEN1
+            color = RED if fish.id == self.shark.target_fish_idx else fish.get_color()
             pygame.draw.rect(self.display, color, pygame.Rect(fish.x, fish.y, BLOCK_SIZE, BLOCK_SIZE))
             
         # food
