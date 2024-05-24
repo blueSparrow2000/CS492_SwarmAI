@@ -295,13 +295,13 @@ class MADDPGAgent(Agent):
             action_onehot.scatter_(1, actions_sampled, 1)
             next_actions.append(action_onehot)
             
-        next_actions = torch.stack(next_actions, dim=1)
-        next_state_action = torch.cat((next_states.view(BATCH_SIZE, -1), next_actions.view(BATCH_SIZE, -1)), dim=1)
+        next_actions = torch.stack(next_actions, dim=1).to(device)
+        next_state_action = torch.cat((next_states.view(BATCH_SIZE, -1), next_actions.view(BATCH_SIZE, -1)), dim=1).to(device)
         for i in range(self.num_agents):
             self.critic_target[i].to(device)
             self.critic[i].to(device)
             target_q = rewards + (1 - dones) * self.gamma * self.critic_target[i](next_state_action)
-            expected_q = self.critic[i](torch.cat((states.view(BATCH_SIZE, -1), actions.view(BATCH_SIZE, -1)), dim=1))
+            expected_q = self.critic[i](torch.cat((states.view(BATCH_SIZE, -1), actions.view(BATCH_SIZE, -1)).to(device), dim=1))
             critic_loss = nn.MSELoss()(expected_q, target_q.detach())
             self.critic_optimizer[i].zero_grad()
             critic_loss.backward()
@@ -313,7 +313,7 @@ class MADDPGAgent(Agent):
             action_pred = self.actors[i](states[:, i, :])
             current_actions = actions.clone()
             current_actions[:, i, :] = action_pred
-            actor_loss = -self.critic[i](torch.cat((states.view(BATCH_SIZE, -1), current_actions.view(BATCH_SIZE, -1)), dim=1)).mean()
+            actor_loss = -self.critic[i](torch.cat((states.view(BATCH_SIZE, -1), current_actions.view(BATCH_SIZE, -1)).to(device), dim=1)).mean()
             self.actor_optimizers[i].zero_grad()
             actor_loss.backward()
             self.actor_optimizers[i].step()
