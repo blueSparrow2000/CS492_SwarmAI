@@ -324,6 +324,8 @@ class MADDPGAgent(Agent):
         for actor, target in zip(self.actors, self.actor_targets):
             self.soft_update(actor, target, self.tau)
 
+BASELINE = 'random' #'' : no baseline # 'oneDir' : moves one direction
+
 
 def train():
     plot_scores = []
@@ -343,44 +345,103 @@ def train():
         모든 물고기에 대해 model parameter를 업데이트 함 => 1개를 골라서 하나의 물고기에 대해서만 업데이트 해도 될까? (speed issue)
         
         '''
-        state_olds = []
-        final_moves = []
-        
-        for i in range(len(game.fish_list)):
-            # if (i >= len(game.fish_list)):
-            #     break # go to next loop if fish do not exist
-            # get old state
-            cur_state_old = agent.get_state(game, i)
-            state_olds.append(cur_state_old)
+        ###################### Baseline #########################
+        if BASELINE == 'random':
+            final_moves = []
+            for fish in game.fish_list:
+                move_idx = random.randint(0, 3)
+                my_move = [0,0,0,0]
+                my_move[move_idx] = 1
+                # get move
+                final_moves.append(my_move)
 
-            # get move
-            final_moves.append(agent.act(cur_state_old,i))
-        reward, done, score = game.play_step(final_moves)
-        state_news = []
-        for i in range(len(game.fish_list)):
-            cur_state_new = agent.get_state(game, i)
-            state_news.append(cur_state_new)
-        
-        agent.remember(state_olds, final_moves, reward, state_news, done)
-        if iters%100==0:
-            agent.train()
-        if done:
-            game.reset()
-            agent.n_games += 1
-            if score > record:
-                record = score
-                agent.model.save()
-            print('Game', agent.n_games, 'Score', score, 'Record: ', record)
+            reward, done, score = game.play_step(final_moves)
 
-            # plotting
-            if PLOT_LEARNING:
-                plot_scores.append(score)
-                top_ten_scores.appendleft(score)
-                # total_score += score
-                # mean_score = total_score / agent.n_games
-                mean_score = sum(top_ten_scores) / len(top_ten_scores)
-                plot_mean_scores.append(mean_score)
-                plot(plot_scores, plot_mean_scores)
+            if done:
+                game.reset()
+                agent.n_games += 1
+                if score > record:
+                    record = score
+                print('Game', agent.n_games, 'Score', score, 'Record: ', record)
+
+                # plotting
+                if PLOT_LEARNING:
+                    plot_scores.append(score)
+                    top_ten_scores.appendleft(score)
+                    # total_score += score
+                    # mean_score = total_score / agent.n_games
+                    mean_score = sum(top_ten_scores) / len(top_ten_scores)
+                    plot_mean_scores.append(mean_score)
+                    plot(plot_scores, plot_mean_scores)
+        elif BASELINE == 'oneDir':
+            final_moves = []
+            for fish in game.fish_list:
+                move_idx = fish.id % 4
+                my_move = [0,0,0,0]
+                my_move[move_idx] = 1
+                # get move
+                final_moves.append(my_move)
+
+            reward, done, score = game.play_step(final_moves)
+
+            if done:
+                game.reset()
+                agent.n_games += 1
+                if score > record:
+                    record = score
+                print('Game', agent.n_games, 'Score', score, 'Record: ', record)
+
+                # plotting
+                if PLOT_LEARNING:
+                    plot_scores.append(score)
+                    top_ten_scores.appendleft(score)
+                    # total_score += score
+                    # mean_score = total_score / agent.n_games
+                    mean_score = sum(top_ten_scores) / len(top_ten_scores)
+                    plot_mean_scores.append(mean_score)
+                    plot(plot_scores, plot_mean_scores)
+        ###################### Baseline #########################
+        else:
+        #################### ORIGINAL TRAINING ####################
+            state_olds = []
+            final_moves = []
+            for i in range(len(game.fish_list)):
+                # if (i >= len(game.fish_list)):
+                #     break # go to next loop if fish do not exist
+                # get old state
+                cur_state_old = agent.get_state(game, i)
+                state_olds.append(cur_state_old)
+
+                # get move
+                final_moves.append(agent.act(cur_state_old,i))
+
+            reward, done, score = game.play_step(final_moves)
+            state_news = []
+            for i in range(len(game.fish_list)):
+                cur_state_new = agent.get_state(game, i)
+                state_news.append(cur_state_new)
+
+            agent.remember(state_olds, final_moves, reward, state_news, done)
+            if iters%100==0:
+                agent.train()
+            if done:
+                game.reset()
+                agent.n_games += 1
+                if score > record:
+                    record = score
+                    agent.model.save()
+                print('Game', agent.n_games, 'Score', score, 'Record: ', record)
+
+                # plotting
+                if PLOT_LEARNING:
+                    plot_scores.append(score)
+                    top_ten_scores.appendleft(score)
+                    # total_score += score
+                    # mean_score = total_score / agent.n_games
+                    mean_score = sum(top_ten_scores) / len(top_ten_scores)
+                    plot_mean_scores.append(mean_score)
+                    plot(plot_scores, plot_mean_scores)
+        ############### ORIGINAL TRAINING ####################
 
 if __name__ == '__main__':
     train()
