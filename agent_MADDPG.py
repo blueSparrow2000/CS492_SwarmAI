@@ -82,7 +82,7 @@ class Agent:
         self.memory = deque(maxlen=MAX_MEMORY)  # 꽉차면 popleft()
         if state_size == 0:
             state_size = 2 + 2 * (INITIAL_FISH_NUM - 1)
-        self.model = Linear_QNet(state_size, 256, output_size)  # 2(shark) + 2*(#fish - 1) input, 4 action outputs
+        self.model = Linear_QNet(state_size, 256, output_size).to(device)  # 2(shark) + 2*(#fish - 1) input, 4 action outputs
         self.trainer = QTrainer(self.model, lr = LR_ACTOR, gamma = self.gamma)
 
     def reset(self):
@@ -225,7 +225,7 @@ class Agent:
             move = random.randint(0,3)
             final_move[move] = 1
         else:
-            state0 = torch.tensor(state, dtype=torch.float)
+            state0 = torch.tensor(state, dtype=torch.float).to(device)
             prediction = self.model(state0) # execute forward function in the model
             move = torch.argmax(prediction).item() # convert to only one number = item
             final_move[move] = 1
@@ -276,54 +276,51 @@ class MADDPGAgent(Agent):
     def train(self):
         if len(self.memory) < BATCH_SIZE:
             return
-        mini_batch = random.sample(self.memory, BATCH_SIZE)
-        states, actions, rewards, next_states, dones = zip(*mini_batch)
+        mini_sample = random.sample(self.memory, BATCH_SIZE)
+        states, actions, rewards, next_states, dones = zip(*mini_sample)
+        
+        # Convert to tensors and move to the appropriate device
         states = torch.tensor(np.array(states), dtype=torch.float).to(device)
         actions = torch.tensor(np.array(actions), dtype=torch.float).to(device)
         rewards = torch.tensor(np.array(rewards), dtype=torch.float).unsqueeze(1).to(device)
         next_states = torch.tensor(np.array(next_states), dtype=torch.float).to(device)
         dones = torch.tensor(np.array(dones), dtype=torch.float).unsqueeze(1).to(device)
-            # Update critic
-       
-        next_actions=[]
+        
+        next_actions = []
         for i in range(self.num_agents):
-            self.actor_targets[i].to(device)
-            self.actors[i].to(device)
             action_probs = self.actor_targets[i](next_states[:, i, :])
             actions_sampled = torch.multinomial(action_probs, 1)
-            action_onehot = torch.zeros(BATCH_SIZE, self.action_dim,device=device)
+            action_onehot = torch.zeros(BATCH_SIZE, self.action_dim, device=device)
             action_onehot.scatter_(1, actions_sampled, 1)
             next_actions.append(action_onehot)
-            
+        
         next_actions = torch.stack(next_actions, dim=1).to(device)
         next_state_action = torch.cat((next_states.view(BATCH_SIZE, -1), next_actions.view(BATCH_SIZE, -1)), dim=1).to(device)
+        
         for i in range(self.num_agents):
-            self.critic_target[i].to(device)
-            self.critic[i].to(device)
             target_q = rewards + (1 - dones) * self.gamma * self.critic_target[i](next_state_action)
-            expected_q = self.critic[i](torch.cat((states.view(BATCH_SIZE, -1), actions.view(BATCH_SIZE, -1)).to(device), dim=1))
+            combined_states_actions = torch.cat((states.view(BATCH_SIZE, -1), actions.view(BATCH_SIZE, -1)), dim=1).to(device)
+            expected_q = self.critic[i](combined_states_actions)
             critic_loss = nn.MSELoss()(expected_q, target_q.detach())
+            
             self.critic_optimizer[i].zero_grad()
             critic_loss.backward()
             self.critic_optimizer[i].step()
-            
-            # Update actors
+        
         for i in range(self.num_agents):
-            
             action_pred = self.actors[i](states[:, i, :])
-            current_actions = actions.clone()
+            current_actions = actions.clone().to(device)
             current_actions[:, i, :] = action_pred
-            actor_loss = -self.critic[i](torch.cat((states.view(BATCH_SIZE, -1), current_actions.view(BATCH_SIZE, -1)).to(device), dim=1)).mean()
+            combined_states_actions = torch.cat((states.view(BATCH_SIZE, -1), current_actions.view(BATCH_SIZE, -1)), dim=1).to(device)
+            actor_loss = -self.critic[i](combined_states_actions).mean()
+            
             self.actor_optimizers[i].zero_grad()
             actor_loss.backward()
             self.actor_optimizers[i].step()
-            # for param in self.actors[i].parameters():
-            #     print(param.grad)
-            # Soft update target networks
-
-
+        
         for cri, tar in zip(self.critic, self.critic_target):
             self.soft_update(cri, tar, self.tau)
+        
         for actor, target in zip(self.actors, self.actor_targets):
             self.soft_update(actor, target, self.tau)
 
