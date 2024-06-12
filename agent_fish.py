@@ -7,9 +7,9 @@ from fish import Fish
 SHARK_AI_ON = False
 if SHARK_AI_ON:
     #To use shark AI
-    from game_with_sharkAI import SnakeGameAI, INITIAL_FISH_NUM
+    from game_with_sharkAI import SwarmGameAI, INITIAL_FISH_NUM
 else:
-    from game_fish import SnakeGameAI, INITIAL_FISH_NUM
+    from game_fish import SwarmGameAI, INITIAL_FISH_NUM
 
 
 from model import Linear_QNet, QTrainer
@@ -224,7 +224,7 @@ def train_with_shark():
     ### SHARKAI ###
     shark_agent = SharkAgent()
     ### SHARKAI ###
-    game = SnakeGameAI()
+    game = SwarmGameAI()
     while True:
         state_olds = []
         final_moves = []
@@ -315,7 +315,7 @@ def train():
     total_score = 0
     record = -999  # best score
     agent = Agent()
-    game = SnakeGameAI()
+    game = SwarmGameAI()
     while True:
         '''
         현재 매커니즘: NN model 하나를 모든 agent가 공유해서 사용함

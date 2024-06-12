@@ -2,7 +2,7 @@ import torch
 import random
 import numpy as np
 from collections import deque # store memory
-from game_fish import SnakeGameAI, INITIAL_FISH_NUM
+from game_fish import SwarmGameAI, INITIAL_FISH_NUM
 from model import Linear_QNet, QTrainer
 from helper import plot
 import torch.nn as nn
@@ -324,7 +324,7 @@ class MADDPGAgent(Agent):
         for actor, target in zip(self.actors, self.actor_targets):
             self.soft_update(actor, target, self.tau)
 
-BASELINE = 'random' #'' : no baseline # 'oneDir' : moves one direction
+BASELINE = '' #'' : no baseline # 'oneDir' : moves one direction #'random'
 
 
 def train():
@@ -334,7 +334,7 @@ def train():
     total_score = 0
     record = -999 # best score
     agent = MADDPGAgent(INITIAL_FISH_NUM, 8, 4)
-    game = SnakeGameAI()
+    game = SwarmGameAI()
     iters=0
     while True:
         iters+=1

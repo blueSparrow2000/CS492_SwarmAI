@@ -11,7 +11,7 @@ font = pygame.font.SysFont('arial', 25)
 
 Point = namedtuple('Point', 'x, y, id')
 
-class SnakeGameAI:
+class SwarmGameAI:
     def __init__(self, w=WIDTH, h=HEIGHT): #w=640, h=640
         self.w = w
         self.h = h

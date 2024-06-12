@@ -83,7 +83,7 @@ class Shark():
 
 ############################# SHARK AI (if needed) #############################
 
-class SnakeGameAI:
+class SwarmGameAI:
     def __init__(self, w=WIDTH, h=HEIGHT): #w=640, h=640
         self.w = w
         self.h = h
