@@ -1,6 +1,9 @@
 # Overview
+- Report
 https://github.com/blueSparrow2000/CS492_SwarmAI/blob/master/Report_TEAM2.pdf
 
+- Presentation
+https://github.com/blueSparrow2000/CS492_SwarmAI/blob/master/PPT_Team2.pdf
 
 
 # Installations
